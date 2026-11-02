@@ -4,16 +4,20 @@ import java.util.Scanner;
 
 /**
  * Main application class providing a console-based, menu-driven user interface.
- * Coordinates user interaction with the WeatherService.
+ * Coordinates user interaction with the WeatherService and WeatherApiClient.
+ *
  * Demonstrates:
- *  - Separation of Concerns (UI separated from business logic)
- *  - Abstraction (working through WeatherService interface)
- *  - Exception Handling (validating inputs, try-catch blocks)
+ *  - Separation of Concerns (UI separated from business logic and network transport)
+ *  - Abstraction (working through WeatherService and WeatherApiClient interfaces)
+ *  - Polymorphism (dynamic dispatch on service and API client implementations)
+ *  - Exception Handling (validating inputs, try-catch blocks for domain and API errors)
+ *  - Graceful Fallback (seamless transition from remote API failure to manual input)
  *  - Robust Scanner input processing
  */
 public class Main {
 
     private static final WeatherService weatherService = new WeatherManager();
+    private static final WeatherApiClient weatherApiClient = new OpenMeteoApiClient();
     private static final Scanner scanner = new Scanner(System.in);
 
     public static void main(String[] args) {
@@ -25,30 +29,33 @@ public class Main {
 
         while (running) {
             displayMenu();
-            int choice = readIntegerInput("Enter your choice (1-6): ", 1, 6);
+            int choice = readIntegerInput("Enter your choice (1-7): ", 1, 7);
 
             switch (choice) {
                 case 1:
                     handleAddWeather();
                     break;
                 case 2:
-                    handleDisplayAllReports();
+                    handleFetchLiveWeather();
                     break;
                 case 3:
-                    handleSearchCity();
+                    handleDisplayAllReports();
                     break;
                 case 4:
-                    handleUpdateWeather();
+                    handleSearchCity();
                     break;
                 case 5:
-                    handleDisplayKeyMetrics();
+                    handleUpdateWeather();
                     break;
                 case 6:
+                    handleDisplayKeyMetrics();
+                    break;
+                case 7:
                     running = false;
                     System.out.println("\n[SUCCESS] Thank you for using the Weather Report System. Exiting application.");
                     break;
                 default:
-                    System.out.println("\n[!] Invalid selection. Please choose an option between 1 and 6.");
+                    System.out.println("\n[!] Invalid selection. Please choose an option between 1 and 7.");
             }
 
             if (running) {
@@ -64,26 +71,34 @@ public class Main {
      */
     private static void displayMenu() {
         System.out.println("\n========== WEATHER REPORT SYSTEM ==========");
-        System.out.println("  1. Add Weather Information");
-        System.out.println("  2. Display All Weather Reports");
-        System.out.println("  3. Search Weather by City");
-        System.out.println("  4. Update Weather Information");
-        System.out.println("  5. Display Temperature, Humidity and Wind Speed");
-        System.out.println("  6. Exit");
+        System.out.println("  1. Add Weather Information Manually");
+        System.out.println("  2. Fetch Live Weather from Open-Meteo API");
+        System.out.println("  3. Display All Weather Reports");
+        System.out.println("  4. Search Weather by City");
+        System.out.println("  5. Update Weather Information");
+        System.out.println("  6. Display Temperature, Humidity and Wind Speed");
+        System.out.println("  7. Exit");
         System.out.println("===========================================");
     }
 
     /**
-     * Handles Requirement 1: Adding weather information for a city.
+     * Handles Option 1: Adding weather information for a city manually.
      */
     private static void handleAddWeather() {
-        System.out.println("\n--- [ Add Weather Information ] ---");
+        System.out.println("\n--- [ Add Weather Information Manually ] ---");
         String cityName = readNonEmptyString("Enter City Name: ");
+        promptAndSaveManualReport(cityName);
+    }
 
+    /**
+     * Prompts for meteorological metrics and saves a manual weather report.
+     * Reused by handleAddWeather and offerManualFallback to eliminate code duplication.
+     */
+    private static void promptAndSaveManualReport(String cityName) {
         // Check if city already exists before asking for all metrics
         if (weatherService.cityExists(cityName)) {
             System.out.printf("%n[!] A weather record for '%s' already exists.%n", cityName);
-            System.out.println("    Duplicate entries are not permitted. Use Option 4 to update this city's records.\n");
+            System.out.println("    Duplicate entries are not permitted. Use Option 5 to update this city's records.\n");
             return;
         }
 
@@ -106,7 +121,57 @@ public class Main {
     }
 
     /**
-     * Handles Requirement 2: Displaying weather reports for all cities.
+     * Handles Option 2: Fetching real-time weather from Open-Meteo REST API.
+     */
+    private static void handleFetchLiveWeather() {
+        System.out.println("\n--- [ Fetch Live Weather from Open-Meteo API ] ---");
+        String cityName = readNonEmptyString("Enter City Name to fetch live weather: ");
+
+        // Check if city already exists in the local system
+        if (weatherService.cityExists(cityName)) {
+            System.out.printf("%n[!] A weather record for '%s' already exists in the system.%n", cityName);
+            System.out.println("    Duplicate entries are not permitted. Use Option 5 to update this city's records.\n");
+            return;
+        }
+
+        System.out.printf("%n[i] Contacting Open-Meteo API for '%s'...%n", cityName);
+
+        try {
+            WeatherReport liveReport = weatherApiClient.fetchCurrentWeather(cityName);
+            System.out.println("\n[SUCCESS] Live weather data retrieved successfully!");
+            liveReport.displayReport();
+
+            // Save report into WeatherManager
+            boolean added = weatherService.addWeatherReport(liveReport);
+            if (added) {
+                System.out.printf("[SUCCESS] Live report for '%s' has been saved to the system.%n", liveReport.getCityName());
+            } else {
+                System.out.printf("[!] Could not save report: A record for '%s' already exists.%n", liveReport.getCityName());
+            }
+
+        } catch (WeatherApiException e) {
+            System.out.printf("%n[!] API Error: %s%n", e.getMessage());
+            offerManualFallback(cityName);
+        } catch (InvalidWeatherDataException e) {
+            System.out.printf("%n[!] Validation Error in API Data: %s%n", e.getMessage());
+            offerManualFallback(cityName);
+        }
+    }
+
+    /**
+     * Offers the user the option to fall back to manual data entry when an API fetch fails.
+     */
+    private static void offerManualFallback(String cityName) {
+        System.out.print("\nWould you like to enter weather data manually for this city instead? (y/n): ");
+        String response = scanner.nextLine().trim();
+        if (response.equalsIgnoreCase("y") || response.equalsIgnoreCase("yes")) {
+            System.out.println();
+            promptAndSaveManualReport(cityName);
+        }
+    }
+
+    /**
+     * Handles Option 3: Displaying weather reports for all cities.
      */
     private static void handleDisplayAllReports() {
         System.out.println("\n--- [ All Weather Reports ] ---");
@@ -114,7 +179,7 @@ public class Main {
     }
 
     /**
-     * Handles Requirement 3: Searching weather report by city name (case-insensitive).
+     * Handles Option 4: Searching weather report by city name (case-insensitive).
      */
     private static void handleSearchCity() {
         System.out.println("\n--- [ Search Weather by City ] ---");
@@ -130,7 +195,7 @@ public class Main {
     }
 
     /**
-     * Handles Requirement 4: Updating an existing city's weather record.
+     * Handles Option 5: Updating an existing city's weather record.
      */
     private static void handleUpdateWeather() {
         System.out.println("\n--- [ Update Weather Information ] ---");
@@ -139,7 +204,7 @@ public class Main {
         WeatherReport existingReport = weatherService.searchCity(cityName);
         if (existingReport == null) {
             System.out.printf("%n[!] City '%s' is not registered in the system.%n", cityName);
-            System.out.println("    Cannot update a non-existent record. Please use Option 1 to add it first.\n");
+            System.out.println("    Cannot update a non-existent record. Please use Option 1 or Option 2 to add it first.\n");
             return;
         }
 
@@ -167,7 +232,7 @@ public class Main {
     }
 
     /**
-     * Handles Requirement 5: Displaying Temperature, Humidity, and Wind Speed only.
+     * Handles Option 6: Displaying Temperature, Humidity, and Wind Speed only.
      */
     private static void handleDisplayKeyMetrics() {
         weatherService.displayKeyMetrics();
