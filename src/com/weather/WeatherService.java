@@ -38,6 +38,19 @@ public interface WeatherService {
     boolean cityExists(String cityName);
 
     /**
+     * Deletes an existing city's weather record (case-insensitive, trimmed).
+     *
+     * @param cityName The name of the city to delete.
+     * @return true if the report was found and removed, false otherwise.
+     */
+    boolean deleteWeatherReport(String cityName);
+
+    /**
+     * Clears all weather reports currently in memory.
+     */
+    void clearAllReports();
+
+    /**
      * Displays all weather reports in a formatted view.
      */
     void displayAllReports();

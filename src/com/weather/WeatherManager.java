@@ -81,7 +81,7 @@ public class WeatherManager implements WeatherService {
      */
     @Override
     public boolean updateWeatherReport(String cityName, double temperature, double humidity,
-                                       double windSpeed, String condition) throws InvalidWeatherDataException {
+                                        double windSpeed, String condition) throws InvalidWeatherDataException {
         WeatherReport existingReport = searchCity(cityName);
         if (existingReport == null) {
             return false; // City not found
@@ -94,6 +94,26 @@ public class WeatherManager implements WeatherService {
         existingReport.setWeatherCondition(condition);
         existingReport.refreshTimestamp();
         return true;
+    }
+
+    /**
+     * Deletes an existing city's weather record (case-insensitive, trimmed).
+     */
+    @Override
+    public boolean deleteWeatherReport(String cityName) {
+        WeatherReport existingReport = searchCity(cityName);
+        if (existingReport != null) {
+            return weatherReports.remove(existingReport);
+        }
+        return false;
+    }
+
+    /**
+     * Clears all weather reports currently in memory.
+     */
+    @Override
+    public void clearAllReports() {
+        weatherReports.clear();
     }
 
     /**
