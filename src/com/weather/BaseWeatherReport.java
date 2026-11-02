@@ -55,7 +55,7 @@ public abstract class BaseWeatherReport {
 
     public void setTemperature(double temperature) throws InvalidWeatherDataException {
         // Absolute Earth surface temperature limits: approximately -90°C to +60°C
-        if (temperature < -90.0 || temperature > 65.0) {
+        if (!Double.isFinite(temperature) || temperature < -90.0 || temperature > 65.0) {
             throw new InvalidWeatherDataException(
                 "Temperature " + temperature + "°C is out of realistic earthly range (-90°C to 65°C)."
             );

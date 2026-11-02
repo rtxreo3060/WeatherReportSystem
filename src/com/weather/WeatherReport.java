@@ -53,7 +53,7 @@ public class WeatherReport extends BaseWeatherReport {
     }
 
     public void setHumidity(double humidity) throws InvalidWeatherDataException {
-        if (humidity < 0.0 || humidity > 100.0) {
+        if (!Double.isFinite(humidity) || humidity < 0.0 || humidity > 100.0) {
             throw new InvalidWeatherDataException(
                 "Humidity (" + humidity + "%) is invalid. It must be between 0.0% and 100.0%."
             );
@@ -66,7 +66,7 @@ public class WeatherReport extends BaseWeatherReport {
     }
 
     public void setWindSpeed(double windSpeed) throws InvalidWeatherDataException {
-        if (windSpeed < 0.0) {
+        if (!Double.isFinite(windSpeed) || windSpeed < 0.0) {
             throw new InvalidWeatherDataException(
                 "Wind speed (" + windSpeed + " km/h) cannot be negative."
             );

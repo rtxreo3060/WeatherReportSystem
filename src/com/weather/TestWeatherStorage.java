@@ -883,20 +883,50 @@ public class TestWeatherStorage {
                     new MockMetricReport("ValidCity", 20.0, 50.0, Double.NEGATIVE_INFINITY, "Clear")
             )) && Arrays.equals(validBytesOnDisk, Files.readAllBytes(validationFile));
 
+            // 11. Verify domain model setters directly reject non-finite values with InvalidWeatherDataException
+            boolean domainSettersRejectNonFinite = true;
+            WeatherReport domainTestReport = new WeatherReport("DomainTestCity", 20.0, 50.0, 10.0, "Clear");
+            try {
+                domainTestReport.setTemperature(Double.NaN);
+                domainSettersRejectNonFinite = false;
+            } catch (InvalidWeatherDataException ignored) {}
+            try {
+                domainTestReport.setTemperature(Double.POSITIVE_INFINITY);
+                domainSettersRejectNonFinite = false;
+            } catch (InvalidWeatherDataException ignored) {}
+            try {
+                domainTestReport.setHumidity(Double.NaN);
+                domainSettersRejectNonFinite = false;
+            } catch (InvalidWeatherDataException ignored) {}
+            try {
+                domainTestReport.setHumidity(Double.NEGATIVE_INFINITY);
+                domainSettersRejectNonFinite = false;
+            } catch (InvalidWeatherDataException ignored) {}
+            try {
+                domainTestReport.setWindSpeed(Double.NaN);
+                domainSettersRejectNonFinite = false;
+            } catch (InvalidWeatherDataException ignored) {}
+            try {
+                domainTestReport.setWindSpeed(Double.POSITIVE_INFINITY);
+                domainSettersRejectNonFinite = false;
+            } catch (InvalidWeatherDataException ignored) {}
+
             boolean allValidationPassed = validInitialSave && nullRejected && dupsRejected
                     && emptyCityRejected && emptyCondRejected && outRangeTempRejected
                     && outRangeHumRejected && negativeWindRejected
-                    && nonFiniteTempRejected && nonFiniteHumRejected && nonFiniteWindRejected;
+                    && nonFiniteTempRejected && nonFiniteHumRejected && nonFiniteWindRejected
+                    && domainSettersRejectNonFinite;
 
             if (allValidationPassed) {
-                System.out.println("  -> SUCCESS: saveReports() strictly rejected non-finite values (NaN, +/-Inf), out-of-range metrics,");
-                System.out.println("              nulls, and duplicates, while leaving the existing JSON file 100% unchanged!");
+                System.out.println("  -> SUCCESS: saveReports() and domain setters strictly rejected non-finite values (NaN, +/-Inf),");
+                System.out.println("              out-of-range metrics, nulls, and duplicates, while leaving the disk file 100% unchanged!");
                 passed++;
             } else {
-                System.out.printf("  -> FAILED: init=%b, null=%b, dup=%b, emptyCity=%b, emptyCond=%b, temp=%b, hum=%b, wind=%b, nfTemp=%b, nfHum=%b, nfWind=%b%n",
+                System.out.printf("  -> FAILED: init=%b, null=%b, dup=%b, emptyCity=%b, emptyCond=%b, temp=%b, hum=%b, wind=%b, nfTemp=%b, nfHum=%b, nfWind=%b, domainSetters=%b%n",
                         validInitialSave, nullRejected, dupsRejected, emptyCityRejected, emptyCondRejected,
                         outRangeTempRejected, outRangeHumRejected, negativeWindRejected,
-                        nonFiniteTempRejected, nonFiniteHumRejected, nonFiniteWindRejected);
+                        nonFiniteTempRejected, nonFiniteHumRejected, nonFiniteWindRejected,
+                        domainSettersRejectNonFinite);
                 failed++;
             }
 
