@@ -20,7 +20,7 @@ public class Main {
         boolean running = true;
 
         System.out.println("==================================================");
-        System.out.println("   Welcome to the Weather Report System (OOP)     ");
+        System.out.println("       Welcome to the Weather Report System       ");
         System.out.println("==================================================");
 
         while (running) {
